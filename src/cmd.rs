@@ -25,6 +25,11 @@ pub fn start_recording(handle: &WitHandle, access_token: String) {
     client::start_recording(handle, access_token);
 }
 
+pub fn start_autoend_recording(handle: &WitHandle, access_token: String) -> Option<String> {
+    let receiver = client::start_autoend_recording(handle, access_token);
+    receive_json(receiver)
+}
+
 pub fn stop_recording(handle: &WitHandle) -> Option<String> {
     let receiver = client::stop_recording(handle);
     receive_json(receiver)

@@ -6,7 +6,7 @@
 struct wit_context;
 
 struct wit_context *wit_init(const char *device_opt);
-void wit_start_recording(struct wit_context *context, const char *access_token);
+void wit_start_recording(struct wit_context *context, const char *access_token, const int detect_end);
 const char *wit_stop_recording(struct wit_context *context);
 const char *wit_text_query(struct wit_context *context, const char *text, const char *access_token);
 

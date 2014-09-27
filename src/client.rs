@@ -12,7 +12,7 @@ use mic;
 
 pub enum WitCommand {
     Text(String, String, Sender<Result<Json, RequestError>>),
-    Start(String),
+    Start(String, Option<Sender<Result<Json, RequestError>>>),
     Stop(Sender<Result<Json, RequestError>>)
 }
 
@@ -27,8 +27,10 @@ pub enum RequestError {
 pub struct State {
     http: Receiver<Result<Json,RequestError>>,
     mic: Sender<bool>,
+    client: Option<Sender<Result<Json,RequestError>>>
 }
 
+#[deriving(Clone)]
 pub struct Options {
     pub input_device: Option<String>
 }
@@ -90,6 +92,60 @@ fn do_speech_request(stream: &mut io::ChanReader, content_type:String, token: St
     exec_request(req, token)
 }
 
+fn next_state(state: Option<State>, cmd: WitCommand, opts: Options) -> Option<State> {
+    match cmd {
+        Text(token, text, result_tx) => {
+            let r = do_message_request(text, token);
+            result_tx.send(r);
+            state
+        }
+        Start(token, autoend_result_tx) => {
+            if state.is_none() {
+                let mic_context_opt = mic::start(opts.input_device.clone(), autoend_result_tx.is_some());
+
+                let (http_tx, http_rx) = channel();
+                let mic::MicContext {
+                    reader: mut reader,
+                    sender: mic_tx,
+                    rate: rate,
+                    encoding: encoding
+                } = mic_context_opt.unwrap();
+
+                let content_type =
+                    format!("audio/raw;encoding={};bits=16;rate={};endian=big", encoding, rate);
+                println!("Sending speech request with content type: {}", content_type);
+                spawn(proc() {
+                    let reader_ref = &mut *reader;
+                    let foo = do_speech_request(reader_ref, content_type, token);
+                    http_tx.send(foo);
+                });
+
+                Some(State {
+                    http: http_rx,
+                    mic: mic_tx,
+                    client: autoend_result_tx
+                })
+            } else {
+                state
+            }
+        },
+        Stop(result_tx) => {
+            if state.is_none() {
+                println!("[wit] trying to stop but no request started");
+                None
+            } else {
+                let State { http: http_rx, mic: mic_tx, client: _ } = state.unwrap();
+
+                mic::stop(&mic_tx);
+                let foo = http_rx.recv();
+                result_tx.send(foo);
+
+                None
+            }
+        }
+    }
+}
+
 pub fn interpret_string(ctl: &Sender<WitCommand>,
                         token: String,
                         text: String) -> Receiver<Result<Json,RequestError>> {
@@ -98,15 +154,20 @@ pub fn interpret_string(ctl: &Sender<WitCommand>,
     return result_rx
 }
 
-pub fn start_recording(ctl: &Sender<WitCommand>,
-                        token: String) {
-    ctl.send(Start(token));
+pub fn start_recording(ctl: &Sender<WitCommand>, token: String) {
+    ctl.send(Start(token, None));
+}
+
+pub fn start_autoend_recording(ctl: &Sender<WitCommand>, token: String) -> Receiver<Result<Json,RequestError>> {
+    let (result_tx, result_rx) = channel();
+    ctl.send(Start(token, Some(result_tx)));
+    result_rx
 }
 
 pub fn stop_recording(ctl: &Sender<WitCommand>) -> Receiver<Result<Json,RequestError>> {
     let (result_tx, result_rx) = channel();
     ctl.send(Stop(result_tx));
-    return result_rx
+    result_rx
 }
 
 pub fn init(opts: Options) -> Sender<WitCommand>{
@@ -120,60 +181,43 @@ pub fn init(opts: Options) -> Sender<WitCommand>{
         let mut ongoing: Option<State> = None;
         loop {
             println!("[wit] ready. state={}", if ongoing.is_none() {"no"} else {"yes"});
-            let cmd = cmd_rx.recv_opt();
-            if cmd.is_err() {
-                break;
-            }
-            ongoing = match cmd.unwrap() {
-                Text(token, text, result_tx) => {
-                    let r = do_message_request(text, token);
-                    result_tx.send(r);
-                    ongoing
-                }
-                Start(token) => {
-                    if ongoing.is_none() {
-                        let mic_context_opt = mic::start(opts.input_device.clone());
 
-                        let (http_tx, http_rx) = channel();
-                        let mic::MicContext {
-                            reader: mut reader,
-                            sender: mic_tx,
-                            rate: rate,
-                            encoding: encoding
-                        } = mic_context_opt.unwrap();
-
-                        let content_type =
-                            format!("audio/raw;encoding={};bits=16;rate={};endian=big", encoding, rate);
-                        println!("Sending speech request with content type: {}", content_type);
-                        spawn(proc() {
-                            let reader_ref = &mut *reader;
-                            let foo = do_speech_request(reader_ref, content_type, token);
-                            http_tx.send(foo);
-                        });
-
-                        Some(State {
-                            http: http_rx,
-                            mic: mic_tx,
-                        })
-                    } else {
-                        ongoing
+            ongoing = match ongoing {
+                Some(state) => {
+                    match state.client {
+                        Some(client) => {
+                            let http = state.http;
+                            let mic = state.mic;
+                            let cmd_opt = select! (
+                                cmd = cmd_rx.recv() => Some(cmd),
+                                foo = http.recv() => {
+                                    client.send(foo);
+                                    None
+                                }
+                            );
+                            match cmd_opt {
+                                Some(cmd) => {
+                                    let state = State {
+                                        http: http,
+                                        mic: mic,
+                                        client: Some(client.clone())
+                                    };
+                                    next_state(Some(state), cmd, opts.clone())
+                                }
+                                None => None
+                            }
+                        },
+                        None => {
+                            let cmd = cmd_rx.recv();
+                            next_state(Some(state), cmd, opts.clone())
+                        }
                     }
                 },
-                Stop(result_tx) => {
-                    if ongoing.is_none() {
-                        println!("[wit] trying to stop but no request started");
-                        None
-                    } else {
-                        let State { http: http_rx, mic: mic_tx } = ongoing.unwrap();
-
-                        mic::stop(&mic_tx);
-                        let foo = http_rx.recv();
-                        result_tx.send(foo);
-
-                        None
-                    }
+                None => {
+                    let cmd = cmd_rx.recv();
+                    next_state(None, cmd, opts.clone())
                 }
-            }
+            };
         }
     });
     return cmd_tx

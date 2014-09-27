@@ -2,3 +2,5 @@ Cargo.lock
 /lib
 /target
 /example/test
+libvad.a
+vad.o

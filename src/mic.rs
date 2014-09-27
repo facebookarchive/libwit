@@ -10,6 +10,7 @@ static BUF_SIZE: uint = 100;
 
 #[repr(C)]
 #[deriving(Show)]
+#[allow(dead_code)]
 pub enum SoxErrorT {
   SOX_SUCCESS = 0,     /**< Function succeeded = 0 */
   SOX_EOF = -1,        /**< End Of File or other error = -1 */
@@ -23,6 +24,7 @@ pub enum SoxErrorT {
 
 #[repr(C)]
 #[deriving(Show)]
+#[allow(dead_code)]
 pub enum SoxEncodingT {
     SOX_ENCODING_UNKNOWN    = 0,  /**< encoding has not yet been determined */
 
@@ -59,6 +61,7 @@ pub enum SoxEncodingT {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub enum LsxIoType {
   LsxIoFile = 0,
   LsxIoPipe = 1,
@@ -67,12 +70,14 @@ pub enum LsxIoType {
 
 #[repr(C)]
 #[deriving(Show)]
+#[allow(dead_code)]
 pub enum SoxBool {
     SoxFalse = 0,
     SoxTrue = 1
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub enum SoxOptionT {
     SoxOptionNo = 0,
     SoxOptionYes = 1,
@@ -178,6 +183,13 @@ extern {
     //fn sox_quit() -> SoxErrorT;
 }
 
+#[link(name = "vad", kind = "static")]
+extern {
+    fn wvs_still_talking(state: *const c_void, samples: *const i16, nb_samples: c_int) -> c_int;
+    fn wvs_init(threshold: c_double, sample_rate: c_int) -> *const c_void;
+    fn wvs_clean(state: *const c_void);
+}
+
 pub struct MicContext {
     pub reader: Box<io::ChanReader>,
     pub sender: Sender<bool>,
@@ -185,11 +197,19 @@ pub struct MicContext {
     pub encoding: String
 }
 
+fn cleanup_recording_session(input_ptr: *const SoxFormatT, vad_state: *const c_void) {
+    println!("[mic] stopping");
+    unsafe {sox_close(input_ptr)};
+    if !vad_state.is_null() {
+        unsafe {wvs_clean(vad_state)};
+    }
+}
+
 pub fn is_big_endian() -> bool {
     return 1u16.to_be() == 1u16;
 }
 
-pub fn start(input_device: Option<String>) -> Option<MicContext> {
+pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicContext> {
 
     let (tx, rx) = channel();
     let reader = io::ChanReader::new(rx);
@@ -224,6 +244,13 @@ pub fn start(input_device: Option<String>) -> Option<MicContext> {
         SoxTrue => !is_big_endian()
     };
 
+    // initialize VAD
+    let vad_state = if vad_enabled {
+        unsafe {wvs_init(8f64, input.signal.rate as i32)}
+    } else {
+        null()
+    };
+
     spawn(proc() {
         loop {
             match ctl_rx.try_recv() {
@@ -232,8 +259,7 @@ pub fn start(input_device: Option<String>) -> Option<MicContext> {
                     match x {
                         true => (),
                         false => {
-                            println!("[mic] stopping");
-                            unsafe {sox_close(input_ptr)};
+                            cleanup_recording_session(input_ptr, vad_state);
                             break;
                         }
                     }
@@ -245,6 +271,7 @@ pub fn start(input_device: Option<String>) -> Option<MicContext> {
                     unsafe {sox_read(input_ptr, (&buf).as_ptr() as *const i32, BUF_SIZE as size_t)};
                     //println!("Read: {}", buf);
                     let total_mono_bytes = total_bytes / (2 * num_channels); // 32bit -> 16bit
+                    let num_samples = total_mono_bytes / 2;
                     let monobuf = Vec::from_fn(total_mono_bytes, |idx| {
                         let byte_offset = if is_big_endian {
                             idx % 2
@@ -253,6 +280,30 @@ pub fn start(input_device: Option<String>) -> Option<MicContext> {
                         };
                         buf[(idx / 4) * 4 * num_channels * 2 + byte_offset]
                     });
+
+                    if vad_enabled {
+                        // TODO we shouldn't need to change the format twice
+                        let monobuf_platform_endianness = Vec::from_fn(total_mono_bytes, |idx| {
+                            let byte_offset = match input.encoding.opposite_endian {
+                                SoxFalse => idx % 2,
+                                SoxTrue => 1 - idx % 2
+                            };
+                            buf[(idx / 2) * 2 + byte_offset]
+                        });
+
+                        let still_talking = unsafe {
+                            wvs_still_talking(
+                                vad_state,
+                                monobuf_platform_endianness.as_ptr() as *const i16,
+                                num_samples as i32)
+                            };
+                        if still_talking == 0 {
+                            println!("[mic] detected end of speech");
+                            cleanup_recording_session(input_ptr, vad_state);
+                            break;
+                        }
+                    }
+
                     let result = tx.send_opt(monobuf);
                     if result.is_err() {
                         println!("[mic] error while sending: {}", result.err());
@@ -260,6 +311,7 @@ pub fn start(input_device: Option<String>) -> Option<MicContext> {
                 }
                 Err(Disconnected) => {
                     println!("[mic] done");
+                    cleanup_recording_session(input_ptr, vad_state);
                     break;
                 }
             }

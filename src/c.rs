@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types)]
 
 use std::c_str::CString;
-use libc::c_char;
+use libc::{c_char, c_int};
 use cmd;
 use cmd::WitHandle;
 use native;
@@ -70,18 +70,24 @@ c_fn!(wit_init(device_opt: *const c_char) -> wit_context_ptr {
     res
 })
 
-c_fn!(wit_start_recording(context: wit_context_ptr, access_token: *const c_char) -> () {
+c_fn!(wit_start_recording(context: wit_context_ptr, access_token: *const c_char, detect_end: c_int) -> *const c_char {
     let context: &WitContext = mem::transmute(context);
     let access_token_opt = CString::new(access_token, false);
     match access_token_opt.as_str() {
         Some(access_token_str) => {
             let access_token = access_token_str.to_string();
-            cmd::start_recording(&context.handle, access_token)
+            if detect_end == 0 {
+                cmd::start_recording(&context.handle, access_token)
+            } else {
+                let result = cmd::start_autoend_recording(&context.handle, access_token);
+                return c_str_result(result)
+            }
         }
         None => {
             println!("[wit] error: failed to read access token");
         }
     }
+    ptr::null()
 })
 
 c_fn!(wit_stop_recording(context: wit_context_ptr) -> *const c_char {
