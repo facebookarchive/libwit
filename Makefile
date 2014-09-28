@@ -1,6 +1,7 @@
 SRC = src/vad/vad.c
 OBJ = $(SRC:.c=.o)
 OUT = libvad.a
+CFLAGS = -std=c99
  
 default: $(OUT)
  
