@@ -43,21 +43,20 @@ struct WitContext {
 
 pub type wit_context_ptr = *const ();
 
-fn c_str_result(json_result: Result<json::Json, client::RequestError>) -> *const c_char {
+fn to_c_str_opt(json_result: Result<json::Json, client::RequestError>) -> Option<*const c_char> {
     let opt_str = json_result.ok().and_then(|json| {
         println!("[wit] received response: {}", json);
         let mut s = MemWriter::new();
         json.to_writer(&mut s as &mut io::Writer).unwrap();
         String::from_utf8(s.unwrap()).ok()
     });
-    match opt_str {
-        Some(s) => s.to_c_str().as_ptr(),
-        None => ptr::null()
-    }
+    opt_str.map(|string| {
+        string.to_c_str().as_ptr()
+    })
 }
 
-fn receive_c_str_result(receiver: Receiver<Result<json::Json, client::RequestError>>) -> *const c_char {
-    c_str_result(receiver.recv())
+fn c_str_result(json_result: Result<json::Json, client::RequestError>) -> *const c_char {
+    to_c_str_opt(json_result).unwrap_or(ptr::null())
 }
 
 fn from_c_string(string: *const c_char) -> Option<String> {
@@ -68,8 +67,13 @@ fn from_c_string(string: *const c_char) -> Option<String> {
 fn receive_with_callback(receiver: Receiver<Result<json::Json, client::RequestError>>, cb: Option<extern "C" fn(*const c_char)>) {
     match cb {
         Some(f) => spawn(proc() {
-            let result = receive_c_str_result(receiver);
-            f(result)
+            match to_c_str_opt(receiver.recv()) {
+                Some(c_str) => {
+                    println!("[wit] calling provided callback function");
+                    f(c_str);
+                }
+                None => println!("[wit] warning: null string pointer, doing nothing")
+            };
         }),
         None => println!("[wit] warning: no callback, discarding result")
     }
@@ -163,13 +167,13 @@ c_fn!(wit_voice_query_start(context: wit_context_ptr, access_token: *const c_cha
     };
 })
 
-c_fn!(voice_query_stop(context: wit_context_ptr) -> *const c_char {
+c_fn!(wit_voice_query_stop(context: wit_context_ptr) -> *const c_char {
     let context: &WitContext = mem::transmute(context);
     let result = cmd::voice_query_stop(&context.handle);
     c_str_result(result)
 })
 
-c_fn!(voice_query_stop_async(context: wit_context_ptr, cb: Option<extern "C" fn(*const c_char)>) -> () {
+c_fn!(wit_voice_query_stop_async(context: wit_context_ptr, cb: Option<extern "C" fn(*const c_char)>) -> () {
     let context: &WitContext = mem::transmute(context);
     let receiver = cmd::voice_query_stop_async(&context.handle);
     receive_with_callback(receiver, cb);
