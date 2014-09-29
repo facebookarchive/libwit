@@ -1,13 +1,16 @@
 #![allow(non_camel_case_types)]
 
 use std::c_str::CString;
-use libc::{c_char, c_int};
+use libc::c_char;
 use cmd;
 use cmd::WitHandle;
 use native;
 use std;
-use std::{mem, ptr, rt};
+use std::{mem, ptr, rt, io};
 use std::sync::atomic::{AtomicBool, SeqCst, INIT_ATOMIC_BOOL};
+use client;
+use serialize::json;
+use std::io::MemWriter;
 
 static mut RUNTIME_INITIALIZED: AtomicBool = INIT_ATOMIC_BOOL;
 
@@ -40,11 +43,35 @@ struct WitContext {
 
 pub type wit_context_ptr = *const ();
 
-
-fn c_str_result(result: Option<String>) -> *const c_char {
-    match result {
-        Some(r) => r.to_c_str().as_ptr(),
+fn c_str_result(json_result: Result<json::Json, client::RequestError>) -> *const c_char {
+    let opt_str = json_result.ok().and_then(|json| {
+        println!("[wit] received response: {}", json);
+        let mut s = MemWriter::new();
+        json.to_writer(&mut s as &mut io::Writer).unwrap();
+        String::from_utf8(s.unwrap()).ok()
+    });
+    match opt_str {
+        Some(s) => s.to_c_str().as_ptr(),
         None => ptr::null()
+    }
+}
+
+fn receive_c_str_result(receiver: Receiver<Result<json::Json, client::RequestError>>) -> *const c_char {
+    c_str_result(receiver.recv())
+}
+
+fn from_c_string(string: *const c_char) -> Option<String> {
+    let str_opt = unsafe {CString::new(string, false)};
+    str_opt.as_str().map(|string| {string.to_string()})
+}
+
+fn receive_with_callback(receiver: Receiver<Result<json::Json, client::RequestError>>, cb: Option<extern "C" fn(*const c_char)>) {
+    match cb {
+        Some(f) => spawn(proc() {
+            let result = receive_c_str_result(receiver);
+            f(result)
+        }),
+        None => println!("[wit] warning: no callback, discarding result")
     }
 }
 
@@ -52,14 +79,11 @@ c_fn!(wit_init(device_opt: *const c_char) -> wit_context_ptr {
     let device = if device_opt.is_null() {
         None
     } else {
-        let device_str = CString::new(device_opt, false);
-        match device_str.as_str() {
-            Some(s) => Some(s.to_string()),
-            None => {
-                println!("[wit] warning: failed to read device name. Using default instead");
-                None
-            }
+        let device = from_c_string(device_opt);
+        if device.is_none() {
+            println!("[wit] warning: failed to read device name. Using default instead");
         }
+        device
     };
     let handle = cmd::init(device);
 
@@ -70,55 +94,83 @@ c_fn!(wit_init(device_opt: *const c_char) -> wit_context_ptr {
     res
 })
 
-c_fn!(wit_start_recording(context: wit_context_ptr, access_token: *const c_char, detect_end: c_int) -> *const c_char {
+c_fn!(wit_close(context: wit_context_ptr) -> () {
     let context: &WitContext = mem::transmute(context);
-    let access_token_opt = CString::new(access_token, false);
-    match access_token_opt.as_str() {
-        Some(access_token_str) => {
-            let access_token = access_token_str.to_string();
-            if detect_end == 0 {
-                cmd::start_recording(&context.handle, access_token)
-            } else {
-                let result = cmd::start_autoend_recording(&context.handle, access_token);
-                return c_str_result(result)
-            }
-        }
-        None => {
-            println!("[wit] error: failed to read access token");
-        }
-    }
-    ptr::null()
-})
-
-c_fn!(wit_stop_recording(context: wit_context_ptr) -> *const c_char {
-    let context: &WitContext = mem::transmute(context);
-    let result = cmd::stop_recording(&context.handle);
-    c_str_result(result)
+    cmd::cleanup(&context.handle)
 })
 
 c_fn!(wit_text_query(context: wit_context_ptr, text: *const c_char, access_token: *const c_char) -> *const c_char {
     let context: &WitContext = mem::transmute(context);
-    let access_token_opt = CString::new(access_token, false);
-    let result = match access_token_opt.as_str() {
-        Some(access_token_str) => {
-            let access_token = access_token_str.to_string();
-            let text_opt = CString::new(text, false);
-            match text_opt.as_str() {
-                Some(text_str) => {
-                    let text = text_str.to_string();
-                    cmd::text_query(&context.handle, text, access_token)
+    match from_c_string(access_token) {
+        Some(access_token) => {
+            match from_c_string(text) {
+                Some(text) => {
+                    let result = cmd::text_query(&context.handle, text, access_token);
+                    return c_str_result(result)
                 },
-                None => {
-                    println!("[wit] error: failed to read query text");
-                    None
-                }
+                None => println!("[wit] error: failed to read query text")
             }
         }
-        None => {
-            println!("[wit] error: failed to read access token");
-            None
-        }
+        None => println!("[wit] error: failed to read access token")
     };
+    ptr::null()
+})
+
+c_fn!(wit_text_query_async(context: wit_context_ptr, text: *const c_char, access_token: *const c_char, cb: Option<extern "C" fn(*const c_char)>) -> () {
+    let context: &WitContext = mem::transmute(context);
+    match from_c_string(access_token) {
+        Some(access_token) => {
+            match from_c_string(text) {
+                Some(text) => {
+                    let receiver = cmd::text_query_async(&context.handle, text, access_token);
+                    receive_with_callback(receiver, cb);
+                },
+                None => println!("[wit] error: failed to read query text")
+            }
+        }
+        None => println!("[wit] error: failed to read access token")
+    };
+})
+
+c_fn!(wit_voice_query_auto(context: wit_context_ptr, access_token: *const c_char) -> *const c_char {
+    let context: &WitContext = mem::transmute(context);
+    match from_c_string(access_token) {
+        Some(access_token) => {
+            let result = cmd::voice_query_auto(&context.handle, access_token);
+            return c_str_result(result)
+        }
+        None => println!("[wit] error: failed to read access token")
+    }
+    ptr::null()
+})
+
+c_fn!(wit_voice_query_auto_async(context: wit_context_ptr, access_token: *const c_char, cb: Option<extern "C" fn(*const c_char)>) -> () {
+    let context: &WitContext = mem::transmute(context);
+    match from_c_string(access_token) {
+        Some(access_token) => {
+            let receiver = cmd::voice_query_auto_async(&context.handle, access_token);
+            receive_with_callback(receiver, cb);
+        }
+        None => println!("[wit] error: failed to read access token")
+    };
+})
+
+c_fn!(wit_voice_query_start(context: wit_context_ptr, access_token: *const c_char) -> () {
+    let context: &WitContext = mem::transmute(context);
+    match from_c_string(access_token) {
+        Some(access_token) => cmd::voice_query_start(&context.handle, access_token),
+        None => println!("[wit] error: failed to read access token")
+    };
+})
+
+c_fn!(voice_query_stop(context: wit_context_ptr) -> *const c_char {
+    let context: &WitContext = mem::transmute(context);
+    let result = cmd::voice_query_stop(&context.handle);
     c_str_result(result)
 })
 
+c_fn!(voice_query_stop_async(context: wit_context_ptr, cb: Option<extern "C" fn(*const c_char)>) -> () {
+    let context: &WitContext = mem::transmute(context);
+    let receiver = cmd::voice_query_stop_async(&context.handle);
+    receive_with_callback(receiver, cb);
+})

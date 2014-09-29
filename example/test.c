@@ -3,13 +3,16 @@
 
 #include "wit.h"
 
+void callback(const char *result) {
+    printf("Received result: %s\n", result);
+    exit(0);
+}
+
 int main(int argc, char *argv[]) {
     struct wit_context *context = wit_init(NULL);
-    //wit_text_query(context, "hello", "MPZX6ST6I7R4LK7SWBYAUK5MDTGC5I4A");
-    //const char *result = wit_text_query(context, "hello world", "MPZX6ST6I7R4LK7SWBYAUK5MDTGC5I4A");
-    wit_start_recording(context, "MPZX6ST6I7R4LK7SWBYAUK5MDTGC5I4A", 0);
-    sleep(2);
-    const char *result = wit_stop_recording(context);
-    printf("%s\n",result);
+    wit_text_query_async(context, "hello", "ACCESS_TOKEN_HERE", callback);
+    //wit_voice_query_auto_async(context, "ACCESS_TOKEN_HERE", callback);
+    sleep(10);
+    printf("Request timeout :(");
     return 0;
 }

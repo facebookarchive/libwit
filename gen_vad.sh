@@ -1,4 +1,5 @@
 #!/bin/sh
+set -x
 cd vad
 aclocal
 automake --add-missing
