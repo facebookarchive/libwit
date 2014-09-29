@@ -51,7 +51,9 @@ fn to_c_str_opt(json_result: Result<json::Json, client::RequestError>) -> Option
         String::from_utf8(s.unwrap()).ok()
     });
     opt_str.map(|string| {
-        string.to_c_str().as_ptr()
+        let c_string = string.to_c_str();
+        // Very important, otherwise the C code doesn't have the ownership of the string
+        unsafe {c_string.unwrap()}
     })
 }
 
