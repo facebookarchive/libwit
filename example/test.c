@@ -3,8 +3,9 @@
 
 #include "wit.h"
 
-void callback(const char *result) {
+void callback(char *result) {
     printf("Received result: %s\n", result);
+    free(result);
     exit(0);
 }
 
