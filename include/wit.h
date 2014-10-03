@@ -6,7 +6,7 @@
 struct wit_context;
 typedef void (*wit_resp_callback)(char *);
 
-struct wit_context *wit_init(const char *device_opt);
+struct wit_context *wit_init(const char *device_opt, unsigned int verbosity);
 void wit_close(struct wit_context *context);
 char *wit_text_query(struct wit_context *context, const char *text, const char *access_token);
 void wit_text_query_async(struct wit_context *context, const char *text, const char *access_token, wit_resp_callback cb);

@@ -1,13 +1,18 @@
 use serialize::json::Json;
 use client;
+use log;
+use log::Info;
 
 pub use client::{RequestError, ChannelClosedError};
 
 pub type WitHandle = Sender<client::WitCommand>;
 
-pub fn init(device_opt: Option<String>) -> WitHandle {
-    let handle = client::init(client::Options{input_device: device_opt.clone()});
-    println!("[wit] initialized with device: {}", device_opt.unwrap_or("default".to_string()));
+pub fn init(device_opt: Option<String>, verbosity: uint) -> WitHandle {
+    let handle = client::init(client::Options{
+        input_device: device_opt.clone(),
+        verbosity: verbosity
+    });
+    wit_log!(Info, "initialized with device: {}", device_opt.unwrap_or("default".to_string()));
     handle
 }
 

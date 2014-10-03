@@ -5,6 +5,9 @@ use libc::{c_char, c_uchar, c_int, c_uint, c_double, c_void, size_t};
 use std::comm::{Empty, Disconnected};
 use std::vec::Vec;
 
+use log;
+use log::{Error, Debug, Info};
+
 static SOX_MAX_NLOOPS: uint = 8;
 static BUF_SIZE: uint = 100;
 
@@ -198,7 +201,7 @@ pub struct MicContext {
 }
 
 fn cleanup_recording_session(input_ptr: *const SoxFormatT, vad_state: *const c_void) {
-    println!("[mic] stopping");
+    wit_log!(Info, "stopping mic");
     unsafe {sox_close(input_ptr)};
     if !vad_state.is_null() {
         unsafe {wvs_clean(vad_state)};
@@ -222,17 +225,17 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
 
     let mut input_ptr = unsafe {sox_open_read(path.as_ptr(), null(), null(), alsa.as_ptr())};
     if input_ptr.is_null() {
-        println!("Couldn't open input device using alsa. Trying with coreaudio...");
+        wit_log!(Info, "couldn't open input device using alsa. Trying with coreaudio...");
         input_ptr = unsafe {sox_open_read(path.as_ptr(), null(), null(), coreaudio.as_ptr())};
     }
     if input_ptr.is_null() {
-        println!("Failed to open input device");
+        wit_log!(Error, "Failed to open input device");
         return None;
     }
 
     let input = unsafe {*input_ptr};
-    println!("Initialized recording device");
-    println!("rate: {}, channels: {}, encoding: {}, bits_per_sample: {}, opposite_endian: {}",
+    wit_log!(Info, "initialized recording device");
+    wit_log!(Debug, "rate: {}, channels: {}, encoding: {}, bits_per_sample: {}, opposite_endian: {}",
         input.signal.rate,
         input.signal.channels,
         input.encoding.encoding,
@@ -255,7 +258,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
         loop {
             match ctl_rx.try_recv() {
                 Ok(x) => {
-                    println!("[mic] recv'd {}", x);
+                    wit_log!(Debug, "received {}", x);
                     match x {
                         true => (),
                         false => {
@@ -298,7 +301,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
                                 num_samples as i32)
                             };
                         if still_talking == 0 {
-                            println!("[mic] detected end of speech");
+                            wit_log!(Info, "detected end of speech");
                             cleanup_recording_session(input_ptr, vad_state);
                             break;
                         }
@@ -306,11 +309,11 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
 
                     let result = tx.send_opt(monobuf);
                     if result.is_err() {
-                        println!("[mic] error while sending: {}", result.err());
+                        wit_log!(Error, "error while sending: {}", result.err());
                     }
                 }
                 Err(Disconnected) => {
-                    println!("[mic] done");
+                    wit_log!(Info, "done");
                     cleanup_recording_session(input_ptr, vad_state);
                     break;
                 }
@@ -330,7 +333,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
         _ => None
     };
     if encoding_opt.is_none() {
-        println!("[mic] unsupported encoding: {}", sox_encoding);
+        wit_log!(Error, "unsupported encoding: {}", sox_encoding);
         return None
     }
     Some(MicContext {
@@ -347,9 +350,9 @@ pub fn stop(tx: &Sender<bool>) {
 
 pub fn init (/*args: &[String]*/) {
     match unsafe {sox_format_init()} {
-        SOX_SUCCESS => println!("[mic] initialized sox: {}", unsafe {CString::new(sox_version(), false)}),
+        SOX_SUCCESS => wit_log!(Info, "initialized sox: {}", unsafe {CString::new(sox_version(), false)}),
         err => {
-            println!("[mic] failed to initialize sox: {}", err);
+            wit_log!(Error, "failed to initialize sox: {}", err);
             return;
         }
     };

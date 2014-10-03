@@ -9,6 +9,8 @@ use curl::http::body::{Body, ToBody, ChunkedBody};
 use url;
 
 use mic;
+use log;
+use log::{Error, Warn, Info, Debug};
 
 pub enum WitCommand {
     Text(String, String, Sender<Result<Json, RequestError>>),
@@ -40,7 +42,8 @@ struct Context {
 
 #[deriving(Clone)]
 pub struct Options {
-    pub input_device: Option<String>
+    pub input_device: Option<String>,
+    pub verbosity: uint
 }
 
 fn exec_request(request: Request, token: String) -> Result<Json,RequestError> {
@@ -49,13 +52,13 @@ fn exec_request(request: Request, token: String) -> Result<Json,RequestError> {
         .header("Accept", "application/vnd.wit.20140620+json")
         .exec()
         .map_err(|e| {
-            println!("[wit] network error: {}", e);
+            wit_log!(Error, "network error: {}", e);
             NetworkError(e)
         })
         .and_then(|x| {
             let status = x.get_code();
             if status >= 400 {
-                println!("[wit] server responded with error: {}", status);
+                wit_log!(Error, "server responded with error: {}", status);
                 return Err(StatusError(status));
             }
             let body = x.get_body();
@@ -63,12 +66,12 @@ fn exec_request(request: Request, token: String) -> Result<Json,RequestError> {
                 Some(str) => {
                     let obj = json::from_str(str);
                     obj.map_err(|e| {
-                        println!("[wit] could not parse response from server: {}", str);
+                        wit_log!(Error, "could not parse response from server: {}", str);
                         ParserError(e)
                     })
                 }
                 None => {
-                    println!("[wit] response was not valid UTF-8");
+                    wit_log!(Error, "response was not valid UTF-8");
                     Err(InvalidResponseError)
                 }
             }
@@ -123,7 +126,7 @@ fn next_state(state: State, cmd: WitCommand, opts: Options) -> State {
 
                     let content_type =
                         format!("audio/raw;encoding={};bits=16;rate={};endian=big", encoding, rate);
-                    println!("Sending speech request with content type: {}", content_type);
+                    wit_log!(Debug, "Sending speech request with content type: {}", content_type);
                     spawn(proc() {
                         let reader_ref = &mut *reader;
                         let foo = do_speech_request(reader_ref, content_type, token);
@@ -150,7 +153,7 @@ fn next_state(state: State, cmd: WitCommand, opts: Options) -> State {
                     Idle
                 },
                 s => {
-                    println!("[wit] trying to stop but no request started");
+                    wit_log!(Warn, "trying to stop but no request started");
                     s
                 }
             }
@@ -198,17 +201,19 @@ pub fn cleanup(ctl: &Sender<WitCommand>) {
 }
 
 pub fn init(opts: Options) -> Sender<WitCommand>{
+    log::set_verbosity(opts.verbosity);
+
     mic::init();
 
     let (cmd_tx, cmd_rx): (Sender<WitCommand>, Receiver<WitCommand>) = channel();
 
-    println!("[wit] init");
+    wit_log!(Debug, "init state machine");
 
     spawn(proc() {
         let mut ongoing: State = Idle;
         loop {
-            println!("[wit] ready. state={}", match ongoing {
-                Ongoing(_) => "ongoing",
+            wit_log!(Info, "ready. state={}", match ongoing {
+                Ongoing(_) => "recording",
                 Idle => "idle",
                 Stopped => "stopped"
             });

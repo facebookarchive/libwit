@@ -13,7 +13,7 @@ void callback(char *result) {
 }
 
 int main(int argc, char *argv[]) {
-    context = wit_init(NULL);
+    context = wit_init(NULL, 4);
     wit_voice_query_auto_async(context, "ACCESS_TOKEN_HERE", callback);
     printf("Say something...\n");
     sleep(10);

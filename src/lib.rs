@@ -8,6 +8,7 @@ extern crate url;
 #[cfg(c_target)]
 extern crate native;
 
+mod log;
 mod client;
 mod mic;
 
