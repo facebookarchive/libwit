@@ -20,5 +20,5 @@ To compile the example, run
 
 ```bash
 cd example
-./build.sh
+gcc -Wall -o test test.c -I ../include -L ../lib -lwit -lsox -lcurl
 ```
