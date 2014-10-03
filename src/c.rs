@@ -20,12 +20,18 @@ fn run<T>(f: || -> T) -> T {
         rt::init(0, ptr::null());
         unsafe {RUNTIME_INITIALIZED.swap(true, SeqCst)};
     }
-    let task = native::task::new((0, std::uint::MAX));
-    let mut result: Option<T> = None;
-    task.run(|| {
-        result = Some(f());
-    }).destroy();
-    result.unwrap()
+    if rt::local::Local::exists(None::<rt::task::Task>) {
+        // We're already inside a task
+        f()
+    } else {
+        // Run the closure inside a task
+        let task = native::task::new((0, std::uint::MAX));
+        let mut result: Option<T> = None;
+        task.run(|| {
+            result = Some(f());
+        }).destroy();
+        result.unwrap()
+    }
 }
 
 macro_rules! c_fn(
