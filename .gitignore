@@ -16,3 +16,7 @@ vad/Makefile.in
 vad/Makefile
 vad/.deps
 vad/vad.o
+vad/config.guess
+vad/config.sub
+vad/libtool
+vad/ltmain.sh

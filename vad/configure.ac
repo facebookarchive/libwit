@@ -6,12 +6,13 @@ AC_INIT([vad], [0.1])
 AM_INIT_AUTOMAKE
 AC_OUTPUT(Makefile)
 AC_CONFIG_SRCDIR([vad.c])
+AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_RANLIB
 
 # Checks for libraries.
+LT_INIT
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h])
