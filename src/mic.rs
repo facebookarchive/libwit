@@ -5,8 +5,7 @@ use libc::{c_char, c_uchar, c_int, c_uint, c_double, c_void, size_t};
 use std::comm::{Empty, Disconnected};
 use std::vec::Vec;
 
-use log;
-use log::{Error, Debug, Info};
+use log::{mod, Error, Debug, Info};
 
 static SOX_MAX_NLOOPS: uint = 8;
 static BUF_SIZE: uint = 100;
