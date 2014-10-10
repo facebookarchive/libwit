@@ -1,9 +1,11 @@
 #![macro_escape]
 
+use std::sync::atomics::{AtomicUint, Relaxed, INIT_ATOMIC_UINT};
+
 // Not sure there is a much better way. We want to be able to use
 // logging from anywhere, without having to carry the verbosity level
 // everywhere in the code
-static mut VERBOSITY: uint = 0;
+static mut VERBOSITY: AtomicUint = INIT_ATOMIC_UINT;
 
 #[deriving(PartialEq, PartialOrd)]
 pub enum LogLevel {
@@ -15,7 +17,7 @@ pub enum LogLevel {
 
 impl LogLevel {
     pub fn should_show(level: LogLevel) -> bool {
-        match unsafe {VERBOSITY} {
+        match unsafe { VERBOSITY.load(Relaxed) } {
             0 => false,
             1 => level <= Error,
             2 => level <= Warn,
@@ -26,7 +28,7 @@ impl LogLevel {
 }
 
 pub fn set_verbosity(verbosity: uint) {
-    unsafe {VERBOSITY = verbosity};
+    unsafe { VERBOSITY.store(verbosity, Relaxed) }
 }
 
 macro_rules! wit_log(
