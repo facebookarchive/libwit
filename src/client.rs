@@ -1,16 +1,12 @@
-use std::str;
-use std::io;
-use curl::http;
-use curl::http::Request;
+use std::{str, io};
+use curl::http::{mod, Request};
 use curl::ErrCode;
-use serialize::json;
-use serialize::json::Json;
+use serialize::json::{mod, Json};
 use curl::http::body::{Body, ToBody, ChunkedBody};
 use url;
 
 use mic;
-use log;
-use log::{Error, Warn, Info, Debug};
+use log::{mod, Error, Warn, Info, Debug};
 
 pub enum WitCommand {
     Text(String, String, Sender<Result<Json, RequestError>>),

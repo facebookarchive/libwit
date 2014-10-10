@@ -1,7 +1,6 @@
 use serialize::json::Json;
 use client;
-use log;
-use log::Info;
+use log::{mod, Info};
 
 pub use client::{RequestError, ChannelClosedError};
 
