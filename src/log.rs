@@ -1,6 +1,6 @@
 #![macro_escape]
 
-use std::sync::atomics::{AtomicUint, Relaxed, INIT_ATOMIC_UINT};
+use std::sync::atomic::{AtomicUint, Relaxed, INIT_ATOMIC_UINT};
 
 // Not sure there is a much better way. We want to be able to use
 // logging from anywhere, without having to carry the verbosity level
