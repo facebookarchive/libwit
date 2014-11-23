@@ -4,8 +4,9 @@ use std::c_str::CString;
 use libc::{c_char, c_uchar, c_int, c_uint, c_double, c_void, size_t};
 use std::comm::{Empty, Disconnected};
 use std::vec::Vec;
-
-use log::{mod, Error, Debug, Info};
+use std::num::Int;
+use log;
+use log::LogLevel::{Error, Debug, Info};
 
 const SOX_MAX_NLOOPS: uint = 8;
 const BUF_SIZE: uint = 100;
@@ -185,7 +186,6 @@ extern {
     //fn sox_quit() -> SoxErrorT;
 }
 
-#[link(name = "vad", kind = "static")]
 extern {
     fn wvs_still_talking(state: *const c_void, samples: *const i16, nb_samples: c_int) -> c_int;
     fn wvs_init(threshold: c_double, sample_rate: c_int) -> *const c_void;
@@ -199,16 +199,16 @@ pub struct MicContext {
     pub encoding: String
 }
 
+fn is_big_endian() -> bool {
+    1u16.to_be() == 1u16
+}
+
 fn cleanup_recording_session(input_ptr: *const SoxFormatT, vad_state: *const c_void) {
     wit_log!(Info, "stopping mic");
     unsafe {sox_close(input_ptr)};
     if !vad_state.is_null() {
         unsafe {wvs_clean(vad_state)};
     }
-}
-
-pub fn is_big_endian() -> bool {
-    return 1u16.to_be() == 1u16;
 }
 
 pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicContext> {
@@ -242,8 +242,8 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
         input.encoding.opposite_endian);
 
     let is_big_endian = match input.encoding.opposite_endian {
-        SoxFalse => is_big_endian(),
-        SoxTrue => !is_big_endian()
+        SoxBool::SoxFalse => is_big_endian(),
+        SoxBool::SoxTrue => !is_big_endian()
     };
 
     // initialize VAD
@@ -287,8 +287,8 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
                         // TODO we shouldn't need to change the format twice
                         let monobuf_platform_endianness = Vec::from_fn(total_mono_bytes, |idx| {
                             let byte_offset = match input.encoding.opposite_endian {
-                                SoxFalse => idx % 2,
-                                SoxTrue => 1 - idx % 2
+                                SoxBool::SoxFalse => idx % 2,
+                                SoxBool::SoxTrue => 1 - idx % 2
                             };
                             buf[(idx / 2) * 2 + byte_offset]
                         });
@@ -324,11 +324,11 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
 
     let sox_encoding = input.encoding.encoding;
     let encoding_opt = match sox_encoding {
-        SOX_ENCODING_SIGN2 => Some("signed-integer"),
-        SOX_ENCODING_UNSIGNED => Some("unsigned-integer"),
-        SOX_ENCODING_FLOAT => Some("floating-point"),
-        SOX_ENCODING_ULAW => Some("ulaw"),
-        SOX_ENCODING_ALAW => Some("alaw"),
+        SoxEncodingT::SOX_ENCODING_SIGN2 => Some("signed-integer"),
+        SoxEncodingT::SOX_ENCODING_UNSIGNED => Some("unsigned-integer"),
+        SoxEncodingT::SOX_ENCODING_FLOAT => Some("floating-point"),
+        SoxEncodingT::SOX_ENCODING_ULAW => Some("ulaw"),
+        SoxEncodingT::SOX_ENCODING_ALAW => Some("alaw"),
         _ => None
     };
     if encoding_opt.is_none() {
@@ -349,7 +349,7 @@ pub fn stop(tx: &Sender<bool>) {
 
 pub fn init (/*args: &[String]*/) {
     match unsafe {sox_format_init()} {
-        SOX_SUCCESS => wit_log!(Info, "initialized sox: {}", unsafe {CString::new(sox_version(), false)}),
+        SoxErrorT::SOX_SUCCESS => wit_log!(Info, "initialized sox: {}", unsafe {CString::new(sox_version(), false)}),
         err => {
             wit_log!(Error, "failed to initialize sox: {}", err);
             return;

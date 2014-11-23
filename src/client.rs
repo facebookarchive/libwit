@@ -6,7 +6,8 @@ use curl::http::body::{Body, ToBody, ChunkedBody};
 use url;
 
 use mic;
-use log::{mod, Error, Warn, Info, Debug};
+use log;
+use log::LogLevel::{Error, Warn, Info, Debug};
 
 pub enum WitCommand {
     Text(String, String, Sender<Result<Json, RequestError>>),
@@ -45,17 +46,17 @@ pub struct Options {
 fn exec_request(request: Request, token: String) -> Result<Json,RequestError> {
     request
         .header("Authorization", format!("Bearer {}", token).as_slice())
-        .header("Accept", "application/vnd.wit.20140620+json")
+        .header("Accept", "application/vnd.wit.20141124+json")
         .exec()
         .map_err(|e| {
             wit_log!(Error, "network error: {}", e);
-            NetworkError(e)
+            RequestError::NetworkError(e)
         })
         .and_then(|x| {
             let status = x.get_code();
             if status >= 400 {
                 wit_log!(Error, "server responded with error: {}", status);
-                return Err(StatusError(status));
+                return Err(RequestError::StatusError(status));
             }
             let body = x.get_body();
             match str::from_utf8(body.as_slice()) {
@@ -63,12 +64,12 @@ fn exec_request(request: Request, token: String) -> Result<Json,RequestError> {
                     let obj = json::from_str(str);
                     obj.map_err(|e| {
                         wit_log!(Error, "could not parse response from server: {}", str);
-                        ParserError(e)
+                        RequestError::ParserError(e)
                     })
                 }
                 None => {
                     wit_log!(Error, "response was not valid UTF-8");
-                    Err(InvalidResponseError)
+                    Err(RequestError::InvalidResponseError)
                 }
             }
         })
@@ -101,23 +102,23 @@ fn do_speech_request(stream: &mut io::ChanReader, content_type:String, token: St
 
 fn next_state(state: State, cmd: WitCommand, opts: Options) -> State {
     match cmd {
-        Text(token, text, result_tx) => {
+        WitCommand::Text(token, text, result_tx) => {
             let r = do_message_request(text, token);
             result_tx.send(r);
             state
         }
-        Start(token, autoend_result_tx) => {
+        WitCommand::Start(token, autoend_result_tx) => {
             match state {
-                Ongoing(context) => Ongoing(context),
+                State::Ongoing(context) => State::Ongoing(context),
                 _ => {
                     let mic_context_opt = mic::start(opts.input_device.clone(), autoend_result_tx.is_some());
 
                     let (http_tx, http_rx) = channel();
                     let mic::MicContext {
-                        reader: mut reader,
+                        mut reader,
                         sender: mic_tx,
-                        rate: rate,
-                        encoding: encoding
+                        rate,
+                        encoding
                     } = mic_context_opt.unwrap();
 
                     let content_type =
@@ -129,7 +130,7 @@ fn next_state(state: State, cmd: WitCommand, opts: Options) -> State {
                         http_tx.send(foo);
                     });
 
-                    Ongoing(Context {
+                    State::Ongoing(Context {
                         http: http_rx,
                         mic: mic_tx,
                         client: autoend_result_tx
@@ -137,16 +138,16 @@ fn next_state(state: State, cmd: WitCommand, opts: Options) -> State {
                 }
             }
         }
-        Stop(result_tx) => {
+        WitCommand::Stop(result_tx) => {
             match state {
-                Ongoing(context) => {
+                State::Ongoing(context) => {
                     let Context { http: http_rx, mic: mic_tx, client: _ } = context;
 
                     mic::stop(&mic_tx);
                     let foo = http_rx.recv();
                     result_tx.send(foo);
 
-                    Idle
+                    State::Idle
                 },
                 s => {
                     wit_log!(Warn, "trying to stop but no request started");
@@ -154,15 +155,15 @@ fn next_state(state: State, cmd: WitCommand, opts: Options) -> State {
                 }
             }
         }
-        Cleanup => {
+        WitCommand::Cleanup => {
             match state {
-                Ongoing(context) => {
+                State::Ongoing(context) => {
                     let Context { http: _, mic: mic_tx, client: _ } = context;
                     mic::stop(&mic_tx)
                 },
                 _ => ()
             };
-            Stopped
+            State::Stopped
         }
     }
 }
@@ -171,28 +172,28 @@ pub fn interpret_string(ctl: &Sender<WitCommand>,
                         token: String,
                         text: String) -> Receiver<Result<Json,RequestError>> {
     let (result_tx, result_rx) = channel();
-    ctl.send(Text(token, text, result_tx));
+    ctl.send(WitCommand::Text(token, text, result_tx));
     return result_rx
 }
 
 pub fn start_recording(ctl: &Sender<WitCommand>, token: String) {
-    ctl.send(Start(token, None));
+    ctl.send(WitCommand::Start(token, None));
 }
 
 pub fn start_autoend_recording(ctl: &Sender<WitCommand>, token: String) -> Receiver<Result<Json,RequestError>> {
     let (result_tx, result_rx) = channel();
-    ctl.send(Start(token, Some(result_tx)));
+    ctl.send(WitCommand::Start(token, Some(result_tx)));
     result_rx
 }
 
 pub fn stop_recording(ctl: &Sender<WitCommand>) -> Receiver<Result<Json,RequestError>> {
     let (result_tx, result_rx) = channel();
-    ctl.send(Stop(result_tx));
+    ctl.send(WitCommand::Stop(result_tx));
     result_rx
 }
 
 pub fn cleanup(ctl: &Sender<WitCommand>) {
-    ctl.send(Cleanup);
+    ctl.send(WitCommand::Cleanup);
     // TODO: have the mic call sox_quit()
 }
 
@@ -206,21 +207,21 @@ pub fn init(opts: Options) -> Sender<WitCommand>{
     wit_log!(Debug, "init state machine");
 
     spawn(proc() {
-        let mut ongoing: State = Idle;
+        let mut ongoing: State = State::Idle;
         loop {
             wit_log!(Info, "ready. state={}", match ongoing {
-                Ongoing(_) => "recording",
-                Idle => "idle",
-                Stopped => "stopped"
+                State::Ongoing(_) => "recording",
+                State::Idle => "idle",
+                State::Stopped => "stopped"
             });
 
             match ongoing {
-                Stopped => break,
+                State::Stopped => break,
                 _ => ()
             }
 
             ongoing = match ongoing {
-                Ongoing(context) => {
+                State::Ongoing(context) => {
                     match context.client {
                         Some(client) => {
                             let http = context.http;
@@ -239,14 +240,14 @@ pub fn init(opts: Options) -> Sender<WitCommand>{
                                         mic: mic,
                                         client: Some(client.clone())
                                     };
-                                    next_state(Ongoing(context), cmd, opts.clone())
+                                    next_state(State::Ongoing(context), cmd, opts.clone())
                                 }
-                                None => Idle
+                                None => State::Idle
                             }
                         },
                         None => {
                             let cmd = cmd_rx.recv();
-                            next_state(Ongoing(context), cmd, opts.clone())
+                            next_state(State::Ongoing(context), cmd, opts.clone())
                         }
                     }
                 },

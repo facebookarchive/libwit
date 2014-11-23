@@ -1,8 +1,10 @@
 use serialize::json::Json;
 use client;
-use log::{mod, Info};
+use log;
+use log::LogLevel::Info;
 
-pub use client::{RequestError, ChannelClosedError};
+pub use client::RequestError;
+pub use client::RequestError::ChannelClosedError;
 
 pub type WitHandle = Sender<client::WitCommand>;
 
