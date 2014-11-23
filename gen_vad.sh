@@ -1,10 +1,10 @@
 #!/bin/sh
 set -x
+set -e
 cd vad
 autoreconf -vfi
 ./configure
 make clean
 make
-mv libvad.a ../
+ln -s libvad.a $OUT_DIR
 cd -
-

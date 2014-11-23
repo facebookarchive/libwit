@@ -19,10 +19,10 @@ impl LogLevel {
     pub fn should_show(level: LogLevel) -> bool {
         match unsafe { VERBOSITY.load(Relaxed) } {
             0 => false,
-            1 => level <= Error,
-            2 => level <= Warn,
-            3 => level <= Info,
-            _ => level <= Debug
+            1 => level <= LogLevel::Error,
+            2 => level <= LogLevel::Warn,
+            3 => level <= LogLevel::Info,
+            _ => level <= LogLevel::Debug
         }
     }
 }

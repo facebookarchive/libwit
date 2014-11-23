@@ -12,7 +12,7 @@ use client;
 use serialize::json;
 use std::io::MemWriter;
 use log;
-use log::{Error, Warn, Debug};
+use log::LogLevel::{Error, Warn, Debug};
 
 static mut RUNTIME_INITIALIZED: AtomicBool = INIT_ATOMIC_BOOL;
 
@@ -27,7 +27,7 @@ fn run<T>(f: || -> T) -> T {
         f()
     } else {
         // Run the closure inside a task
-        let task = native::task::new((0, std::uint::MAX));
+        let task = native::task::new((0, std::uint::MAX),0);
         let mut result: Option<T> = None;
         task.run(|| {
             result = Some(f());
