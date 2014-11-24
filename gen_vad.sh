@@ -6,5 +6,7 @@ autoreconf -vfi
 ./configure
 make clean
 make
-ln -s libvad.a $OUT_DIR
+mv libvad.a $OUT_DIR
+ln -s $OUT_DIR/libvad.a .
 cd -
+
