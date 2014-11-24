@@ -4,8 +4,6 @@ use std::c_str::CString;
 use libc::{c_char, c_uint};
 use cmd;
 use cmd::WitHandle;
-use native;
-use std;
 use std::{mem, ptr, rt, io};
 use std::sync::atomic::{AtomicBool, SeqCst, INIT_ATOMIC_BOOL};
 use client;
@@ -16,23 +14,11 @@ use log::LogLevel::{Error, Warn, Debug};
 
 static mut RUNTIME_INITIALIZED: AtomicBool = INIT_ATOMIC_BOOL;
 
-fn run<T>(f: || -> T) -> T {
+fn check_runtime() {
     if unsafe {!RUNTIME_INITIALIZED.load(SeqCst)} {
         // Force runtime initialization
         rt::init(0, ptr::null());
         unsafe {RUNTIME_INITIALIZED.swap(true, SeqCst)};
-    }
-    if rt::local::Local::exists(None::<rt::task::Task>) {
-        // We're already inside a task
-        f()
-    } else {
-        // Run the closure inside a task
-        let task = native::task::new((0, std::uint::MAX),0);
-        let mut result: Option<T> = None;
-        task.run(|| {
-            result = Some(f());
-        }).destroy();
-        result.unwrap()
     }
 }
 
@@ -40,7 +26,8 @@ macro_rules! c_fn(
     ($fname:ident($($arg_name:ident: $arg_type:ty),*) -> $return_type:ty $body:block) => (
         #[no_mangle]
         pub unsafe extern "C" fn $fname($($arg_name: $arg_type),*) -> $return_type {
-            run(|| $body)
+            check_runtime();
+            $body
         }
     );
 )
