@@ -2,6 +2,7 @@
 name = "libwit"
 version = "0.0.1"
 authors = ["martin <martin@wit.ai", "oliv <oliv@wit.ai>", "willy <willy@wit.ai>"]
+links = "vad"
 build = "build.rs"
 
 [lib]
