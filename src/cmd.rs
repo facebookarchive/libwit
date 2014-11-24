@@ -5,8 +5,7 @@ use log::LogLevel::Info;
 
 pub use client::RequestError;
 pub use client::RequestError::ChannelClosedError;
-
-pub type WitHandle = Sender<client::WitCommand>;
+pub use client::WitHandle;
 
 /**
  * Initialize the resources for audio recording and Wit API requests.
