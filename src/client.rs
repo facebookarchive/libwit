@@ -4,8 +4,9 @@ use hyper::client::request::Request;
 use hyper::client::response::Response;
 use hyper::Url;
 use hyper::header::Headers;
-use hyper::header::common::{ContentType, TransferEncoding, Authorization, Accept};
-use hyper::header::common::transfer_encoding::Encoding;
+use hyper::header::common::{ContentType, Authorization, Accept};
+//use hyper::header::common::TransferEncoding;
+//use hyper::header::common::transfer_encoding::Encoding;
 use hyper::status::{StatusCode, StatusClass};
 use mime::{Mime, TopLevel, SubLevel, Attr, Value};
 use serialize::json::{mod, Json};
@@ -109,7 +110,7 @@ fn do_speech_request(stream: &mut io::ChanReader, encoding:String, rate:u32, tok
     };
     match streaming_req.send() {
         Ok(mut res) => read_response(&mut res),
-        Err(e) => Err(RequestError::ClientError)
+        Err(_) => Err(RequestError::ClientError)
     }
 }
 
