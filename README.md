@@ -2,23 +2,21 @@
 
 `libwit` is a small library that makes it easy to integrate Wit.ai with many programming languages. It manages client audio recording and communication with Wit.ai.
 
-To compile as a Rust library, run
+To compile, make sure you have `autoconf` installed. Then run:
 
 ```bash
 cargo build
 ```
 
-To compile the C-compatible library, run
+This will create `libwit-******.rlib` and `libwit-******.a` files in the `target` folder. The first one can be linked as a normal C library. Depending on your platform, the build command will also tell you which additional libraries you will need to link to your program.
+
+To compile the example, run:
 
 ```bash
-./build_c.sh
-```
-
-This will create a `libwit.a` file in the `lib` folder. You can use it in your C-compatible projects, along with the `include/wit.h` file.
-
-To compile the example, run
-
-```bash
+mv build/libwit-******.a lib/libwit.a
 cd example
-gcc -Wall -o test test.c -I ../include -L ../lib -lwit -lsox -lcurl
+gcc -Wall -o test test.c -I ../include -L ../lib -lsox -lwit <additional libraries>
 ```
+
+Make sure to replace `libwit-******.a` with the exact name of the file created with `cargo build`.
+The additional libraries in the `gcc` command are those shown in the output of `cargo build`.
