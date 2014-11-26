@@ -8,7 +8,7 @@ build = "build.rs"
 [lib]
 name = "wit"
 path = "src/lib.rs"
-crate-type = ["rlib"]
+crate-type = ["staticlib", "rlib"]
 
 [dependencies.hyper]
 git = "https://github.com/hyperium/hyper.git"
