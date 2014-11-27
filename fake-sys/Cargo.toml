@@ -1,0 +1,8 @@
+[package]
+name = "fake-sys"
+version = "0.0.1"
+authors = ["Martin Raison <martin@wit.ai>"]
+license = "MIT"
+description = "Fake gcc builtins for ARM processors"
+links = "fake"
+build = "src/build.rs"
