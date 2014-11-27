@@ -19,3 +19,5 @@ git = "https://github.com/hyperium/hyper.git"
 [dependencies.url]
 git = "https://github.com/servo/rust-url.git"
 
+[target.arm-unknown-linux-gnueabihf.dependencies.fake-sys]
+path = "fake-sys"
