@@ -10,6 +10,9 @@ name = "wit"
 path = "src/lib.rs"
 crate-type = ["staticlib", "rlib"]
 
+[dependencies.sox-sys]
+path = "sox-sys"
+
 [dependencies.hyper]
 git = "https://github.com/hyperium/hyper.git"
 

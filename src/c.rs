@@ -43,12 +43,12 @@ fn to_c_str_opt(json_result: Result<json::Json, client::RequestError>) -> Option
         wit_log!(Debug, "received response: {}", json);
         let mut s = MemWriter::new();
         json.to_writer(&mut s as &mut io::Writer).unwrap();
-        String::from_utf8(s.unwrap()).ok()
+        String::from_utf8(s.into_inner()).ok()
     });
     opt_str.map(|string| {
         let c_string = string.to_c_str();
         // Very important, otherwise the C code doesn't have the ownership of the string
-        unsafe {c_string.unwrap()}
+        unsafe {c_string.into_inner()}
     })
 }
 
