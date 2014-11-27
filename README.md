@@ -13,9 +13,9 @@ This will create `libwit-******.rlib` and `libwit-******.a` files in the `target
 To compile the example, run:
 
 ```bash
-mv build/libwit-******.a lib/libwit.a
+mv build/libwit-******.a libwit.a
 cd example
-gcc -Wall -o test test.c -I ../include -L ../lib -lsox -lwit <additional libraries>
+gcc -Wall -o test test.c -I ../include -L . -lwit <additional libraries>
 ```
 
 Make sure to replace `libwit-******.a` with the exact name of the file created with `cargo build`.
