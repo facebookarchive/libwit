@@ -5,6 +5,7 @@ extern crate mime;
 extern crate serialize;
 extern crate libc;
 extern crate url;
+extern crate "sox-sys" as ffi;
 
 mod log;
 mod client;
