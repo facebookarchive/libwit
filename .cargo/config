@@ -4,6 +4,6 @@ linker = "arm-linux-gnueabihf-g++"
 
 #TODO: Compile these libraries using the cross-compiling toolchain
 [target.arm-unknown-linux-gnueabihf.time_helpers]
-rustc-flags = "-L /home/martin/libwit/lib/arm -l time_helpers:static"
+rustc-flags = "-L <YOUR_LIBWIT_ROOT>/libwit/lib/arm -l time_helpers:static"
 [target.arm-unknown-linux-gnueabihf.vad]
-rustc-flags = "-L /home/martin/libwit/lib/arm -l vad:static"
+rustc-flags = "-L <YOUR_LIBWIT_ROOT>/libwit/lib/arm -l vad:static"
