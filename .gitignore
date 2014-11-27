@@ -1,8 +1,6 @@
 Cargo.lock
 /target
 /example/test
-/lib
-libvad.a
 autom4te.cache
 vad/compile
 vad/depcomp
@@ -20,3 +18,4 @@ vad/config.guess
 vad/config.sub
 vad/libtool
 vad/ltmain.sh
+libwit.a
