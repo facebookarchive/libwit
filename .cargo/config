@@ -7,3 +7,6 @@ linker = "arm-linux-gnueabihf-g++"
 rustc-flags = "-L <YOUR_LIBWIT_ROOT>/libwit/lib/arm -l time_helpers:static"
 [target.arm-unknown-linux-gnueabihf.vad]
 rustc-flags = "-L <YOUR_LIBWIT_ROOT>/libwit/lib/arm -l vad:static"
+[target.arm-unknown-linux-gnueabihf.fake]
+rustc-flags = "-L <YOUR_LIBWIT_ROOT>/libwit/lib/arm -l fake:static"
+
