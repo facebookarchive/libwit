@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 typedef struct _Unwind_Context Unwind_Context;
 
 unsigned long _Unwind_GetGR (struct _Unwind_Context *a, int b) {
@@ -13,3 +11,8 @@ unsigned long _Unwind_GetIP (struct _Unwind_Context *a) {
 }
 
 void _Unwind_SetIP (struct _Unwind_Context *a, unsigned long b) {}
+
+int __cxa_thread_atexit_impl (void (*func) (void *), void *arg, void *d) {
+    return 0;
+}
+

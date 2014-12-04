@@ -18,3 +18,5 @@ vad/vad/config.sub
 vad/vad/libtool
 vad/vad/ltmain.sh
 libwit.a
+libfake.a
+libvad.a
