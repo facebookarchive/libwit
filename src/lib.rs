@@ -7,6 +7,7 @@ extern crate libc;
 extern crate url;
 extern crate "sox-sys" as ffi;
 extern crate "fake-sys" as fakeffi;
+extern crate "vad" as vad;
 
 mod log;
 mod client;

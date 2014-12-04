@@ -2,8 +2,6 @@
 name = "libwit"
 version = "0.0.1"
 authors = ["martin <martin@wit.ai", "oliv <oliv@wit.ai>", "willy <willy@wit.ai>"]
-links = "vad"
-build = "build.rs"
 
 [lib]
 name = "wit"
@@ -19,5 +17,8 @@ git = "https://github.com/hyperium/hyper.git"
 [dependencies.url]
 git = "https://github.com/servo/rust-url.git"
 
-[target.arm-unknown-linux-gnueabihf.dependencies.fake-sys]
+[dependencies.fake-sys]
 path = "fake-sys"
+
+[dependencies.vad]
+path = "vad"

@@ -1,21 +1,16 @@
 use std::ptr::null;
 use std::io;
 use std::c_str::CString;
-use libc::{c_int, c_double, c_void, size_t};
+use libc::{c_void, size_t};
 use std::comm::{Empty, Disconnected};
 use std::vec::Vec;
 use std::num::Int;
 use log;
 use log::LogLevel::{Error, Debug, Info};
 use ffi::{mod, SoxEncodingT, SoxErrorT, SoxBool, SoxFormatT};
+use vad;
 
 const BUF_SIZE: uint = 100;
-
-extern {
-    fn wvs_still_talking(state: *const c_void, samples: *const i16, nb_samples: c_int) -> c_int;
-    fn wvs_init(threshold: c_double, sample_rate: c_int) -> *const c_void;
-    fn wvs_clean(state: *const c_void);
-}
 
 pub struct MicContext {
     pub reader: Box<io::ChanReader>,
@@ -32,7 +27,7 @@ fn cleanup_recording_session(input_ptr: *const SoxFormatT, vad_state: *const c_v
     wit_log!(Info, "stopping mic");
     unsafe {ffi::sox_close(input_ptr)};
     if !vad_state.is_null() {
-        unsafe {wvs_clean(vad_state)};
+        unsafe {vad::wvs_clean(vad_state)};
     }
 }
 
@@ -73,7 +68,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
 
     // initialize VAD
     let vad_state = if vad_enabled {
-        unsafe {wvs_init(8f64, input.signal.rate as i32)}
+        unsafe {vad::wvs_init(8f64, input.signal.rate as i32)}
     } else {
         null()
     };
@@ -119,7 +114,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
                         });
 
                         let still_talking = unsafe {
-                            wvs_still_talking(
+                            vad::wvs_still_talking(
                                 vad_state,
                                 monobuf_platform_endianness.as_ptr() as *const i16,
                                 num_samples as i32)
