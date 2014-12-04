@@ -11,14 +11,28 @@ use serialize::json;
 use std::io::MemWriter;
 use log;
 use log::LogLevel::{Error, Warn, Debug};
+use rustrt::task::Task;
+use rustrt::local::Local;
 
 static mut RUNTIME_INITIALIZED: AtomicBool = INIT_ATOMIC_BOOL;
 
-fn check_runtime() {
+fn run<T>(f: || -> T) -> T {
     if unsafe {!RUNTIME_INITIALIZED.load(SeqCst)} {
         // Force runtime initialization
         rt::init(0, ptr::null());
         unsafe {RUNTIME_INITIALIZED.swap(true, SeqCst)};
+    }
+    if Local::exists(None::<Task>) {
+        // We're already inside a task
+        f()
+    } else {
+        // Run the closure inside a task
+        let task = box Task::new(None, None);
+        let mut result: Option<T> = None;
+        task.run(|| {
+            result = Some(f());
+        }).destroy();
+        result.unwrap()
     }
 }
 
@@ -26,8 +40,7 @@ macro_rules! c_fn(
     ($fname:ident($($arg_name:ident: $arg_type:ty),*) -> $return_type:ty $body:block) => (
         #[no_mangle]
         pub unsafe extern "C" fn $fname($($arg_name: $arg_type),*) -> $return_type {
-            check_runtime();
-            $body
+            run(|| $body)
         }
     );
 )

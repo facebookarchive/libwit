@@ -8,6 +8,7 @@ extern crate url;
 extern crate "sox-sys" as ffi;
 extern crate "fake-sys" as fakeffi;
 extern crate "vad" as vad;
+extern crate rustrt;
 
 mod log;
 mod client;
