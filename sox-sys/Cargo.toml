@@ -2,7 +2,6 @@
 name = "sox-sys"
 version = "0.0.1"
 authors = ["Martin Raison <martin@wit.ai>"]
-license = "MIT"
 description = "FFI bindings to Sox"
 links = "sox"
 build = "src/build.rs"
