@@ -5,7 +5,7 @@ dependencies = [
  "fake-sys 0.0.1",
  "hyper 0.0.1 (git+https://github.com/hyperium/hyper.git)",
  "sox-sys 0.0.1",
- "url 0.2.2 (git+https://github.com/servo/rust-url.git)",
+ "url 0.2.3 (git+https://github.com/servo/rust-url.git)",
  "vad 0.0.1",
 ]
 
@@ -14,9 +14,9 @@ name = "cookie"
 version = "0.1.0"
 source = "git+https://github.com/alexcrichton/cookie-rs#272ac27b824c008eddd4842239269cb591f93db5"
 dependencies = [
- "openssl 0.2.2 (git+https://github.com/sfackler/rust-openssl)",
- "time 0.1.0 (git+https://github.com/rust-lang/time)",
- "url 0.2.2 (git+https://github.com/servo/rust-url.git)",
+ "openssl 0.2.3 (git+https://github.com/sfackler/rust-openssl)",
+ "time 0.1.2 (git+https://github.com/rust-lang/time)",
+ "url 0.2.3 (git+https://github.com/servo/rust-url.git)",
 ]
 
 [[package]]
@@ -25,21 +25,29 @@ version = "0.0.1"
 
 [[package]]
 name = "gcc"
-version = "0.1.0"
-source = "git+https://github.com/alexcrichton/gcc-rs#d32b24466d3e0094cef1c1809a04d7a28536f0e0"
+version = "0.1.1"
+source = "git+https://github.com/alexcrichton/gcc-rs#d35c34c871dd75f97fadf04cb0ed85d997a9bc0c"
 
 [[package]]
 name = "hyper"
 version = "0.0.1"
-source = "git+https://github.com/hyperium/hyper.git#9a2605a1382339e511ac298e82bdda9d6cec7a90"
+source = "git+https://github.com/hyperium/hyper.git#2d6c8819cdf196e1467f162d89da5559570b7705"
 dependencies = [
  "cookie 0.1.0 (git+https://github.com/alexcrichton/cookie-rs)",
  "mime 0.0.1 (git+https://github.com/hyperium/mime.rs)",
  "mucell 0.1.2 (git+https://github.com/chris-morgan/mucell)",
- "openssl 0.2.2 (git+https://github.com/sfackler/rust-openssl)",
- "time 0.1.0 (git+https://github.com/rust-lang/time)",
+ "openssl 0.2.3 (git+https://github.com/sfackler/rust-openssl)",
+ "time 0.1.2 (git+https://github.com/rust-lang/time)",
  "unsafe-any 0.1.1 (git+https://github.com/reem/rust-unsafe-any)",
- "url 0.2.2 (git+https://github.com/servo/rust-url.git)",
+ "url 0.2.3 (git+https://github.com/servo/rust-url.git)",
+]
+
+[[package]]
+name = "libressl-pnacl-sys"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "pnacl-build-helper 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -54,23 +62,29 @@ source = "git+https://github.com/chris-morgan/mucell#d198c6605b3e688719db168db09
 
 [[package]]
 name = "openssl"
-version = "0.2.2"
-source = "git+https://github.com/sfackler/rust-openssl#b91a267082d3066bb369d3aa5b572d48b9ed8ded"
+version = "0.2.3"
+source = "git+https://github.com/sfackler/rust-openssl#9754b8e47db5faff2930ed070527d2d71e76e094"
 dependencies = [
- "openssl-sys 0.2.2 (git+https://github.com/sfackler/rust-openssl)",
+ "openssl-sys 0.2.3 (git+https://github.com/sfackler/rust-openssl)",
 ]
 
 [[package]]
 name = "openssl-sys"
-version = "0.2.2"
-source = "git+https://github.com/sfackler/rust-openssl#b91a267082d3066bb369d3aa5b572d48b9ed8ded"
+version = "0.2.3"
+source = "git+https://github.com/sfackler/rust-openssl#9754b8e47db5faff2930ed070527d2d71e76e094"
 dependencies = [
- "pkg-config 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libressl-pnacl-sys 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pkg-config 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "pkg-config"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "pnacl-build-helper"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -79,10 +93,10 @@ version = "0.0.1"
 
 [[package]]
 name = "time"
-version = "0.1.0"
-source = "git+https://github.com/rust-lang/time#b8e219aa9fca15ed1377a7d62aff1eb4378f3ba4"
+version = "0.1.2"
+source = "git+https://github.com/rust-lang/time#0e9230893ef6508f26fb270001e387fd680ef07d"
 dependencies = [
- "gcc 0.1.0 (git+https://github.com/alexcrichton/gcc-rs)",
+ "gcc 0.1.1 (git+https://github.com/alexcrichton/gcc-rs)",
 ]
 
 [[package]]
@@ -92,8 +106,8 @@ source = "git+https://github.com/reem/rust-unsafe-any#eb3fe87bea85f375b8fcefa0cd
 
 [[package]]
 name = "url"
-version = "0.2.2"
-source = "git+https://github.com/servo/rust-url.git#bdda3a7bb946e5f85dd3daeefb54c06fffa8350c"
+version = "0.2.3"
+source = "git+https://github.com/servo/rust-url.git#1c738d2640731f6da58b85bb5a04883b81835b66"
 
 [[package]]
 name = "vad"

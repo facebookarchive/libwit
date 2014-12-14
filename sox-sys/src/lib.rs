@@ -5,8 +5,7 @@ use libc::{c_char, c_uchar, c_int, c_uint, c_double, c_void, size_t};
 const SOX_MAX_NLOOPS: uint = 8;
 
 #[repr(C)]
-#[deriving(Show)]
-#[allow(dead_code)]
+#[deriving(Show,Clone,Copy)]
 pub enum SoxErrorT {
   SOX_SUCCESS = 0,     /**< Function succeeded = 0 */
   SOX_EOF = -1,        /**< End Of File or other error = -1 */
@@ -19,8 +18,7 @@ pub enum SoxErrorT {
 }
 
 #[repr(C)]
-#[deriving(Show)]
-#[allow(dead_code)]
+#[deriving(Show,Clone,Copy)]
 pub enum SoxEncodingT {
     SOX_ENCODING_UNKNOWN    = 0,  /**< encoding has not yet been determined */
 
@@ -57,7 +55,7 @@ pub enum SoxEncodingT {
 }
 
 #[repr(C)]
-#[allow(dead_code)]
+#[deriving(Clone,Copy)]
 pub enum LsxIoType {
   LsxIoFile = 0,
   LsxIoPipe = 1,
@@ -65,15 +63,14 @@ pub enum LsxIoType {
 }
 
 #[repr(C)]
-#[deriving(Show)]
-#[allow(dead_code)]
+#[deriving(Show,Clone,Copy)]
 pub enum SoxBool {
     SoxFalse = 0,
     SoxTrue = 1
 }
 
 #[repr(C)]
-#[allow(dead_code)]
+#[deriving(Clone,Copy)]
 pub enum SoxOptionT {
     SoxOptionNo = 0,
     SoxOptionYes = 1,
@@ -81,6 +78,7 @@ pub enum SoxOptionT {
 }
 
 #[repr(C)]
+#[deriving(Clone,Copy)]
 pub struct SoxInstrInfoT {
     pub midi_note: c_char,
     pub midi_low: c_char,
@@ -90,6 +88,7 @@ pub struct SoxInstrInfoT {
 }
 
 #[repr(C)]
+#[deriving(Clone,Copy)]
 pub struct SoxLoopInfoT {
     pub start: u64,
     pub length: u64,
@@ -98,6 +97,8 @@ pub struct SoxLoopInfoT {
 }
 
 #[repr(C)]
+#[deriving(Clone,Copy)]
+#[allow(raw_pointer_deriving)]
 pub struct SoxOobT {
     pub comments: *mut *const c_char,
     pub instr: SoxInstrInfoT,
@@ -105,7 +106,7 @@ pub struct SoxOobT {
 }
 
 #[repr(C)]
-#[deriving(Clone)]
+#[deriving(Clone,Copy)]
 #[allow(raw_pointer_deriving)]
 pub struct SoxSignalInfoT {
     pub rate: c_double,
@@ -116,6 +117,7 @@ pub struct SoxSignalInfoT {
 }
 
 #[repr(C)]
+#[deriving(Clone,Copy)]
 pub struct SoxEncodingInfoT {
     pub encoding: SoxEncodingT,
     pub bits_per_sample: c_uint,
@@ -127,6 +129,8 @@ pub struct SoxEncodingInfoT {
 }
 
 #[repr(C)]
+#[deriving(Clone,Copy)]
+#[allow(raw_pointer_deriving)]
 pub struct SoxFormatHandlerT {
     pub sox_lib_version_code: c_uint,
     pub description: *const c_char,
@@ -145,6 +149,22 @@ pub struct SoxFormatHandlerT {
 }
 
 #[repr(C)]
+#[deriving(Copy)]
+pub struct SoxErrStr([c_char, ..256]);
+impl Clone for SoxErrStr {
+    fn clone(&self) -> SoxErrStr {
+        let mut vec_copy: [c_char, ..256] = [0, ..256];
+        let &SoxErrStr(vec_orig) = self;
+        for (elem_copy, elem_orig) in vec_copy.iter_mut().zip(vec_orig.iter()) {
+            *elem_copy = elem_orig.clone();
+        }
+        SoxErrStr(vec_copy)
+    }
+}
+
+#[repr(C)]
+#[deriving(Clone,Copy)]
+#[allow(raw_pointer_deriving)]
 pub struct SoxFormatT {
     pub filename: *const c_char,
     pub signal: SoxSignalInfoT,
@@ -156,7 +176,7 @@ pub struct SoxFormatT {
     pub olength: u64,
     pub clips: u64,
     pub sox_errno: c_int,
-    pub sox_errstr: [c_char, ..256],
+    pub sox_errstr: SoxErrStr,
     pub fp: *mut c_void,
     pub io_type: LsxIoType,
     pub tell_off: u64,

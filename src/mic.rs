@@ -52,7 +52,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
         return None;
     }
 
-    let input = unsafe {*input_ptr};
+    let input = unsafe {&*input_ptr};
     wit_log!(Info, "initialized recording device");
     wit_log!(Debug, "rate: {}, channels: {}, encoding: {}, bits_per_sample: {}, opposite_endian: {}",
         input.signal.rate,
@@ -73,6 +73,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
         null()
     };
 
+    let cloned_input = input.clone();
     spawn(proc() {
         loop {
             match ctl_rx.try_recv() {
@@ -87,7 +88,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
                     }
                 }
                 Err(Empty) => {
-                    let num_channels = input.signal.channels as uint;
+                    let num_channels = cloned_input.signal.channels as uint;
                     let total_bytes = 4 * (BUF_SIZE - BUF_SIZE % num_channels);
                     let buf = Vec::from_elem(total_bytes, 0u8);
                     unsafe {ffi::sox_read(input_ptr, (&buf).as_ptr() as *const i32, BUF_SIZE as size_t)};
@@ -106,7 +107,7 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
                     if vad_enabled {
                         // TODO we shouldn't need to change the format twice
                         let monobuf_platform_endianness = Vec::from_fn(total_mono_bytes, |idx| {
-                            let byte_offset = match input.encoding.opposite_endian {
+                            let byte_offset = match cloned_input.encoding.opposite_endian {
                                 SoxBool::SoxFalse => idx % 2,
                                 SoxBool::SoxTrue => 1 - idx % 2
                             };
@@ -142,13 +143,13 @@ pub fn start(input_device: Option<String>, vad_enabled: bool) -> Option<MicConte
 
     ctl_tx.send(true);
 
-    let sox_encoding = input.encoding.encoding;
+    let ref sox_encoding = input.encoding.encoding;
     let encoding_opt = match sox_encoding {
-        SoxEncodingT::SOX_ENCODING_SIGN2 => Some("signed-integer"),
-        SoxEncodingT::SOX_ENCODING_UNSIGNED => Some("unsigned-integer"),
-        SoxEncodingT::SOX_ENCODING_FLOAT => Some("floating-point"),
-        SoxEncodingT::SOX_ENCODING_ULAW => Some("ulaw"),
-        SoxEncodingT::SOX_ENCODING_ALAW => Some("alaw"),
+        &SoxEncodingT::SOX_ENCODING_SIGN2 => Some("signed-integer"),
+        &SoxEncodingT::SOX_ENCODING_UNSIGNED => Some("unsigned-integer"),
+        &SoxEncodingT::SOX_ENCODING_FLOAT => Some("floating-point"),
+        &SoxEncodingT::SOX_ENCODING_ULAW => Some("ulaw"),
+        &SoxEncodingT::SOX_ENCODING_ALAW => Some("alaw"),
         _ => None
     };
     if encoding_opt.is_none() {

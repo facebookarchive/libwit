@@ -25,7 +25,7 @@ pub enum WitCommand {
 
 pub type WitHandle = Sender<WitCommand>;
 
-#[deriving(Show)]
+#[deriving(Show,Copy)]
 pub enum RequestError {
     InvalidResponseError,
     ChannelClosedError,
